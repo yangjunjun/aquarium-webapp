@@ -1,3 +1,4 @@
+import { readPreferences } from './preferences.js';
 export const MAX_FISH = 24;
 export const MAX_FOOD = 70;
 export const SPECIES = ['#e7aa62', '#8bc7bd', '#e3caaa'];
@@ -28,7 +29,7 @@ export function loadState(raw) {
     const s = JSON.parse(raw);
     if (s?.version !== 1 || !Array.isArray(s.fish) || s.fish.length < 1 || s.fish.length > MAX_FISH) return null;
     if (!s.fish.every(f => ['x','y','vx','vy','size','phase','species'].every(k => Number.isFinite(f[k])) && f.x >= .04 && f.x <= .96 && f.y >= .1 && f.y <= .84 && f.size >= 18 && f.size <= 30 && Number.isInteger(f.species) && f.species >= 0 && f.species < 3 && Math.abs(f.vx) <= .2 && Math.abs(f.vy) <= .2)) return null;
-    return { fish: s.fish, night: s.night === true, crabs: restoreCrabs(s.crabs) };
+    return { fish: s.fish, night: s.night === true, crabs: restoreCrabs(s.crabs), ...readPreferences(s) };
   } catch { return null; }
 }
 export function feed(food, x = .5, y = .12) {
