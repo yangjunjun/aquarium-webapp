@@ -36,6 +36,12 @@ npm test
 
 ## 部署
 
-将 `index.html` 和 `src/` 一起部署到任意静态托管服务。所有资源采用相对路径，适合 GitHub Pages 子目录。无需部署 Node 开发服务器。项目不包含自动发布工作流。
+工作流 `.github/workflows/pages.yml` 在每次推送到 `main` 时自动运行语法检查和测试，通过后发布到 GitHub Pages。也可在 Actions 中手动运行。
+
+首次使用需在仓库 Settings → Pages → Build and deployment 中将 Source 设置为 **GitHub Actions**。
+
+部署地址：https://yangjunjun.github.io/aquarium-webapp/
+
+只发布 `index.html`、`src/` 和 `.nojekyll`；所有资源采用相对路径，支持 GitHub Pages 子目录。无需部署 Node 开发服务器。
 
 这是视觉休闲模拟，不是物理或真实水族生态模型。数据只保存在当前浏览器，清理站点数据会丢失。
