@@ -12,5 +12,6 @@ async function check(directory) {
 }
 await check('src');
 await check('tests');
+await check('scripts');
 const result = spawnSync(process.execPath, ['--check', 'server.mjs'], { stdio: 'inherit' });
 process.exit(result.status || 0);

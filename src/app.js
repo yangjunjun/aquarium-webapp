@@ -1,5 +1,5 @@
 import { createFish, createCrab, updateCrabs, loadState, feed, update, MAX_FISH } from './simulation.js';
-import { normalizeTheme, resolveReducedMotion } from './preferences.js';
+import { normalizeTheme, resolveReducedMotion, selectTheme, advanceTransition } from './preferences.js';
 import { THEMES, availableThemes, createScenery, drawScene } from './renderer.js';
 
 const $ = id => document.getElementById(id);
@@ -15,7 +15,7 @@ const state = {
   reducedMotion: stored?.reducedMotion ?? null,
 };
 let paused = false, food = [], time = 0, previous = null, w = 0, h = 0;
-let noticeTimer, storageWarned = false;
+let noticeTimer, storageWarned = false, transition = null;
 const scenery = createScenery();
 const reducedMotion = () => resolveReducedMotion(state.reducedMotion, mediaMotion.matches);
 function notify(message) {
@@ -56,13 +56,22 @@ function refresh() {
   }
   $('motion').textContent = `减少动态：${reducedMotion() ? '开' : '关'}`;
   $('motion').setAttribute('aria-pressed', String(reducedMotion()));
+  for (const button of document.querySelectorAll('[data-action="motion"]')) { button.textContent = reducedMotion() ? '动态：少' : '动态：全';button.setAttribute('aria-pressed', String(reducedMotion())); }
   for (const card of document.querySelectorAll('.theme-card')) card.setAttribute('aria-pressed', String(card.dataset.theme === state.theme));
   syncStats();
 }
 function chooseTheme(id) {
   const theme = normalizeTheme(id);
   if (!availableThemes.includes(theme) || theme === state.theme) return;
-  state.theme = theme;
+  if (!paused && !reducedMotion() && w > 0 && h > 0) {
+    const snapshot = document.createElement('canvas');
+    const scale = Math.min(1, 1440 / Math.max(canvas.width, canvas.height));
+    snapshot.width = Math.max(1, Math.round(canvas.width * scale));
+    snapshot.height = Math.max(1, Math.round(canvas.height * scale));
+    snapshot.getContext('2d').drawImage(canvas, 0, 0, snapshot.width, snapshot.height);
+    transition = { canvas: snapshot, progress: 0 };
+  } else transition = null;
+  selectTheme(state, theme);
   save();refresh();notify(`已进入${THEMES[theme].name}`);
 }
 for (const [id, theme] of Object.entries(THEMES)) {
@@ -86,17 +95,18 @@ $('add').onclick = () => {
   state.fish.push(createFish(state.fish.length));save();syncStats();notify('新伙伴加入了鱼缸');
 };
 for (const button of document.querySelectorAll('[data-action]')) button.onclick = () => {
-  if (button.dataset.action === 'pause') paused = !paused;
+  if (button.dataset.action === 'pause') { paused = !paused;if (paused) transition = null; }
+  if (button.dataset.action === 'motion') { state.reducedMotion = !reducedMotion();if (reducedMotion()) transition = null;save(); }
   if (button.dataset.action === 'light') { state.night = !state.night;save(); }
   refresh();
 };
-$('motion').onclick = () => { state.reducedMotion = !reducedMotion();save();refresh(); };
-mediaMotion.addEventListener('change', refresh);
+$('motion').onclick = () => { state.reducedMotion = !reducedMotion();if (reducedMotion()) transition = null;save();refresh(); };
+mediaMotion.addEventListener('change', () => { if (reducedMotion()) transition = null;refresh(); });
 $('clear').onclick = () => { food = [];syncStats();notify('剩余鱼食已清理'); };
 $('reset').onclick = () => {
   if (!confirm('恢复 8 尾鱼和 2 只螃蟹？当前主题与动态偏好会保留。')) return;
   state.fish = Array.from({length: 8}, (_, i) => createFish(i));state.crabs = [createCrab(0), createCrab(1)];
-  food = [];paused = false;save();refresh();notify('居民已恢复初始状态');
+  food = [];transition = null;paused = false;save();refresh();notify('居民已恢复初始状态');
 };
 function syncFullscreen() {
   const active = document.fullscreenElement === shell || shell.classList.contains('is-expanded');
@@ -123,9 +133,24 @@ new ResizeObserver(() => {
 function frame(now) {
   const dt = previous === null ? 0 : Math.max(0, Math.min((now-previous)/1000, .05));previous = now;
   if (!paused && !document.hidden) { time += dt;update(state.fish,food,dt,time);updateCrabs(state.crabs,dt); }
-  if (!document.hidden) drawScene(ctx, {...state, ...scenery, food, time, w, h, reducedMotion: reducedMotion()});
+  if (!document.hidden) {
+    drawScene(ctx, {...state, ...scenery, food, time, w, h, reducedMotion: reducedMotion()});
+    if (transition) {
+      transition.progress = advanceTransition(transition.progress, dt, {paused, reducedMotion: reducedMotion()});
+      ctx.save();ctx.globalAlpha = 1 - transition.progress;
+      ctx.drawImage(transition.canvas, 0, 0, w, h);ctx.restore();
+      if (transition.progress >= 1) transition = null;
+    }
+  }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => { previous = null;if (document.hidden) save(); });
 setInterval(syncStats, 500);setInterval(save, 5000);window.addEventListener('pagehide', save);
+// Previews use the same painters as the live aquarium; no downloaded imagery.
+for (const card of document.querySelectorAll('.theme-card')) {
+  const preview = card.querySelector('canvas');preview.width = 640;preview.height = 220;
+  const previewCtx = preview.getContext('2d');previewCtx.setTransform(2,0,0,2,0,0);
+  const residents = [0,1,2].map(i => ({x: .3+i*.19, y: .34+(i%2)*.24, vx: i===1?-.035:.035, vy:0, size:11, species:i, phase:i}));
+  drawScene(previewCtx, {...scenery, w:320,h:110,time:6,theme:card.dataset.theme,night:false,reducedMotion:true,fish:residents,crabs:[{x:.48,vx:.022,size:7,phase:1}],food:[]});
+}
 refresh();requestAnimationFrame(frame);
