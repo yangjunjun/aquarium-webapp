@@ -1,5 +1,6 @@
 import nature from './themes/nature.js';
 import scifi from './themes/scifi.js';
+import cthulhu from './themes/cthulhu.js';
 import { normalizeTheme } from './preferences.js';
 
 export const THEMES = {
@@ -7,7 +8,7 @@ export const THEMES = {
   scifi: { name: '科幻实验舱', subtitle: 'ORBITAL HABITAT', description: '漂浮在轨道上的微型生态实验。', food: '营养胶囊', ambient: '能量循环，生命信号稳定', badge: '轨道实验舱 · SECTOR 07', tag: '02 / SYNTHETIC' },
   cthulhu: { name: '克苏鲁深海', subtitle: 'THE SUNKEN UNKNOWN', description: '遗迹仍在呼吸，深处有谁醒着。', food: '幽光碎屑', ambient: '孢子漂浮，遗迹沉睡', badge: '沉没之城 · ABYSSAL ZONE', tag: '03 / ANCIENT' },
 };
-const renderers = { nature, scifi };
+const renderers = { nature, scifi, cthulhu };
 export const availableThemes = Object.keys(renderers);
 
 export function createScenery(seed = 26023) {

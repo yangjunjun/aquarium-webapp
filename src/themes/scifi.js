@@ -15,7 +15,7 @@ function background(ctx, {w,h,night,decorTime:t,bubbles,reducedMotion}) {
   // Energy columns are visible silhouettes, not merely a recolored plant.
   for(const [fraction,height] of [[.19,.47],[.81,.34]]){
     const x=fraction*w,y=h*.89,top=y-height*h;
-    const pulse=reducedMotion?.7:.68+Math.sin(t*1.1+fraction*9)*.12;
+    const pulse=reducedMotion ? .7 : .68+Math.sin(t*1.1+fraction*9)*.12;
     glow(ctx,x,top+height*h*.5,Math.min(120,w*.16),night?'#3e83e416':'#42ceec24');
     ctx.fillStyle='#122f43';ctx.fillRect(x-17,top,34,height*h);
     line(ctx,[[x-17,top],[x-17,y],[x+17,y],[x+17,top]],'#56798c',2);
