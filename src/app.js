@@ -20,6 +20,39 @@ function refresh() {
   $('feed').disabled = paused; $('hint').textContent = paused ? '继续后即可投喂' : '点击水面，撒下一点鱼食';
 }
 function giveFood(x,y) { if(paused) return notify('先继续水下时光，再投喂吧'); feed(food,x,y); refresh(); }
+const shell = canvas.closest('.tank-shell');
+function syncFullscreen() {
+  const active = document.fullscreenElement === shell || shell.classList.contains('is-expanded');
+  $('fullscreen').textContent = active ? '⛶ 退出全屏' : '⛶ 全屏';
+  $('fullscreen').setAttribute('aria-pressed', String(active));
+  $('fullscreen').setAttribute('aria-label', active ? '退出鱼缸全屏' : '全屏查看鱼缸');
+}
+function closeExpanded() {
+  shell.classList.remove('is-expanded');
+  document.body.classList.remove('tank-expanded');
+  syncFullscreen();
+  $('fullscreen').focus();
+}
+$('fullscreen').onclick = async () => {
+  try {
+    if (document.fullscreenElement === shell) await document.exitFullscreen();
+    else if (shell.classList.contains('is-expanded')) closeExpanded();
+    else if (shell.requestFullscreen && document.fullscreenEnabled) await shell.requestFullscreen();
+    else {
+      shell.classList.add('is-expanded');
+      document.body.classList.add('tank-expanded');
+    }
+  } catch {
+    // Embedded browsers may deny native fullscreen; retain an in-page alternative.
+    shell.classList.add('is-expanded');
+    document.body.classList.add('tank-expanded');
+  }
+  syncFullscreen();
+};
+document.addEventListener('fullscreenchange', syncFullscreen);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && shell.classList.contains('is-expanded')) closeExpanded();
+});
 $('feed').onclick = () => giveFood(.3+Math.random()*.4,.12);
 canvas.addEventListener('pointerdown', e => { const r=canvas.getBoundingClientRect(); giveFood((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height); });
 canvas.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();giveFood(.5,.12);} });
