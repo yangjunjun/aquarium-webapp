@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: aquarium-pages
   cancel-in-progress: false
 
 jobs:
@@ -27,10 +27,12 @@ jobs:
       - name: Test simulation
         run: npm test
       - name: Install browser test tools
-        run: |
-          npm install --no-save --package-lock=false playwright@1.56.1
-          npx playwright install --with-deps chromium
+        timeout-minutes: 2
+        run: npm install --no-save --package-lock=false --fetch-retries=1 --fetch-timeout=30000 playwright@1.56.1
       - name: Test browser interactions
+        timeout-minutes: 3
+        env:
+          AQUARIUM_BROWSER_CHANNEL: chrome
         run: node scripts/browser-smoke.mjs
       - name: Save browser screenshots
         if: always()

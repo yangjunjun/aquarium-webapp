@@ -14,7 +14,7 @@ try {
     await delay(100);
   }
   assert.ok(ready,'development server started');
-  browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+  browser = await chromium.launch({headless:true,channel:process.env.AQUARIUM_BROWSER_CHANNEL || undefined,args:['--no-sandbox']});
   const context = await browser.newContext({viewport:{width:1360,height:1100},reducedMotion:'no-preference'});
   const page = await context.newPage(), errors=[];
   page.on('pageerror',error=>errors.push(error.message));
