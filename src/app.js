@@ -1,15 +1,16 @@
-import { createFish, loadState, feed, update, MAX_FISH, SPECIES } from './simulation.js';
+import { createFish, createCrab, updateCrabs, loadState, feed, update, MAX_FISH, SPECIES } from './simulation.js';
 const $ = id => document.getElementById(id);
 const canvas = $('tank'), ctx = canvas.getContext('2d');
 let stored;
 try { stored = loadState(localStorage.getItem('aquarium-v1')); } catch { /* Storage can be unavailable. */ }
 let fish = stored?.fish ?? Array.from({length:8}, (_,i) => createFish(i));
+let crabs = stored?.crabs ?? [createCrab(0), createCrab(1)];
 let night = stored?.night ?? false, paused = false, food = [], time = 0, previous = 0, w = 0, h = 0;
 const bubbles = Array.from({length:28}, () => ({x:Math.random(),y:Math.random(),r:1+Math.random()*2,s:.02+Math.random()*.03}));
 const plants = Array.from({length:44}, (_,i) => ({x:i<22 ? .02+Math.random()*.24 : .73+Math.random()*.26, height:.12+Math.random()*.32,phase:Math.random()*6,width:4+Math.random()*8}));
 let noticeTimer;
 function notify(message) { $('notice').textContent = message; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => $('notice').textContent = '', 3500); }
-function save() { try { localStorage.setItem('aquarium-v1',JSON.stringify({version:1,fish,night})); } catch { notify('浏览器未允许保存，当前鱼缸仍可正常使用'); } }
+function save() { try { localStorage.setItem('aquarium-v1',JSON.stringify({version:1,fish,night,crabs})); } catch { notify('浏览器未允许保存，当前鱼缸仍可正常使用'); } }
 function refresh() {
   $('count').textContent = fish.length; $('add').disabled = fish.length >= MAX_FISH;
   $('pause').textContent = paused ? '▷ 继续' : 'Ⅱ 暂停'; $('pause').setAttribute('aria-pressed',String(paused));
@@ -60,7 +61,7 @@ $('add').onclick = () => { if(fish.length>=MAX_FISH)return; fish.push(createFish
 $('light').onclick = () => { night=!night;save();refresh(); };
 $('pause').onclick = () => { paused=!paused;refresh(); };
 $('clear').onclick = () => { food=[];refresh();notify('剩余鱼食已清理'); };
-$('reset').onclick = () => { if(!confirm('将恢复初始的 8 尾鱼和日光模式，确定重置？'))return; fish=Array.from({length:8},(_,i)=>createFish(i));food=[];night=false;paused=false;save();refresh();notify('鱼缸已恢复初始状态'); };
+$('reset').onclick = () => { if(!confirm('将恢复初始的 8 尾鱼、2 只螃蟹和日光模式，确定重置？'))return; fish=Array.from({length:8},(_,i)=>createFish(i));food=[];crabs=[createCrab(0),createCrab(1)];night=false;paused=false;save();refresh();notify('鱼缸已恢复初始状态'); };
 new ResizeObserver(() => { const r=canvas.getBoundingClientRect();w=r.width;h=r.height;const d=Math.min(devicePixelRatio||1,2);canvas.width=w*d;canvas.height=h*d;ctx.setTransform(d,0,0,d,0,0); }).observe(canvas);
 function drawFish(f) {
   ctx.save();ctx.translate(f.x*w,f.y*h);ctx.scale(f.vx>=0?1:-1,1);ctx.rotate(Math.atan2(f.vy,Math.abs(f.vx)+.01)*.35);
@@ -75,6 +76,41 @@ function drawFish(f) {
   if(f.species===2){ctx.strokeStyle='#514d46';ctx.lineWidth=3;for(const x of [-.3,.1,.5]){ctx.beginPath();ctx.moveTo(s*x,-s*.32);ctx.lineTo(s*x,s*.32);ctx.stroke();}}
   ctx.globalAlpha=1;ctx.shadowBlur=0;ctx.fillStyle='#142527';ctx.beginPath();ctx.arc(s*.66,-s*.07,2.2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s*.69,-s*.1,.7,0,Math.PI*2);ctx.fill();ctx.restore();
 }
+function drawCrab(crab) {
+  const s = crab.size;
+  const gait = Math.sin(time * 12 + crab.phase);
+  ctx.save();
+  ctx.translate(crab.x * w, h * .925 + Math.abs(gait) * .6);
+  // Sand shadow, four pairs of articulated walking legs, and two pincers.
+  ctx.fillStyle = '#07171966';
+  ctx.beginPath();ctx.ellipse(0, s * .5, s * 1.6, s * .25, 0, 0, Math.PI * 2);ctx.fill();
+  ctx.lineCap = 'round';ctx.lineJoin = 'round';ctx.strokeStyle = '#a66348';ctx.lineWidth = 3;
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const stride = Math.sin(time * 12 + crab.phase + i * Math.PI / 2 + side) * s * .12;
+      ctx.beginPath();ctx.moveTo(side * s * .65, (i - 1.5) * s * .12);
+      ctx.lineTo(side * s * (1.1 + i * .12), s * .08 + i * s * .08 + stride);
+      ctx.lineTo(side * s * (1.35 + i * .08), s * .5 + stride);ctx.stroke();
+    }
+    ctx.strokeStyle = '#c77d58';ctx.lineWidth = 4;
+    ctx.beginPath();ctx.moveTo(side * s * .65, -s * .15);
+    ctx.lineTo(side * s * 1.1, -s * .55);ctx.lineTo(side * s * 1.25, -s * .9);ctx.stroke();
+    ctx.fillStyle = '#d48c62';
+    ctx.beginPath();ctx.ellipse(side * s * 1.25, -s * .95, s * .27, s * .34, side * .35, 0, Math.PI * 2);ctx.fill();
+    ctx.strokeStyle = '#633f32';ctx.lineWidth = 1.5;
+    ctx.beginPath();ctx.moveTo(side * s * 1.25, -s * 1.25);ctx.lineTo(side * s * 1.25, -s * .98);ctx.stroke();
+  }
+  const shellColor = ctx.createLinearGradient(0, -s * .55, 0, s * .45);
+  shellColor.addColorStop(0, '#e4a777');shellColor.addColorStop(.55, '#bc7652');shellColor.addColorStop(1, '#754c3d');
+  ctx.fillStyle = shellColor;ctx.beginPath();ctx.ellipse(0, 0, s, s * .55, 0, 0, Math.PI * 2);ctx.fill();
+  ctx.strokeStyle = '#dbb18b';ctx.lineWidth = 2;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();ctx.moveTo(side * s * .4, -s * .35);ctx.lineTo(side * s * .48, -s * .74);ctx.stroke();
+    ctx.fillStyle = '#18272a';ctx.beginPath();ctx.arc(side * s * .48, -s * .74, 2.6, 0, Math.PI * 2);ctx.fill();
+    ctx.fillStyle = '#f6e7c5';ctx.beginPath();ctx.arc(side * s * .48 + .7, -s * .78, .8, 0, Math.PI * 2);ctx.fill();
+  }
+  ctx.restore();
+}
 function draw() {
   const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,night?'#142840':'#285559');bg.addColorStop(.5,night?'#102131':'#163b3e');bg.addColorStop(1,night?'#091922':'#0b2528');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
   ctx.save();ctx.globalCompositeOperation='screen';
@@ -86,7 +122,8 @@ function draw() {
   for(const b of bubbles){const y=((b.y-time*b.s)%1+1)%1*h;ctx.strokeStyle='#bdede333';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x*w+Math.sin(time+b.y*20)*5,y,b.r,0,7);ctx.stroke();}
   for(const p of food){ctx.fillStyle='#dcb470';ctx.beginPath();ctx.arc(p.x*w,p.y*h,2,0,7);ctx.fill();}
   fish.forEach(drawFish);
+  crabs.forEach(drawCrab);
   const shade=ctx.createRadialGradient(w*.5,h*.4,h*.15,w*.5,h*.4,w*.7);shade.addColorStop(0,'#00000000');shade.addColorStop(1,'#03151988');ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
 }
-function frame(now){const dt=previous?Math.min((now-previous)/1000,.05):0;previous=now;if(!paused&&!document.hidden){time+=dt;update(fish,food,dt,time);}draw();requestAnimationFrame(frame);}
+function frame(now){const dt=previous?Math.min((now-previous)/1000,.05):0;previous=now;if(!paused&&!document.hidden){time+=dt;update(fish,food,dt,time);updateCrabs(crabs,dt);}draw();requestAnimationFrame(frame);}
 setInterval(refresh,500);setInterval(save,5000);window.addEventListener('pagehide',save);refresh();requestAnimationFrame(frame);

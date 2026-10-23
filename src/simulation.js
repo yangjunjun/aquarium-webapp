@@ -5,12 +5,30 @@ const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export function createFish(index = 0) {
   return { x: .15 + Math.random() * .7, y: .2 + Math.random() * .5, vx: (Math.random() > .5 ? 1 : -1) * .035, vy: 0, size: 18 + Math.random() * 12, species: index % 3, phase: Math.random() * Math.PI * 2 };
 }
+export function createCrab(index = 0) {
+  return { x: .3 + (index % 2) * .4, vx: index % 2 ? -.022 : .022, size: 18 + Math.random() * 5, phase: Math.random() * Math.PI * 2 };
+}
+export function updateCrabs(crabs, dt) {
+  dt = clamp(dt, 0, .05);
+  for (const crab of crabs) {
+    crab.x += crab.vx * dt;
+    if (crab.x <= .12) { crab.x = .12; crab.vx = Math.abs(crab.vx); }
+    if (crab.x >= .88) { crab.x = .88; crab.vx = -Math.abs(crab.vx); }
+  }
+}
+function restoreCrabs(value) {
+  if (Array.isArray(value) && value.length === 2 && value.every(c => c &&
+    ['x', 'vx', 'size', 'phase'].every(key => Number.isFinite(c[key])) &&
+    c.x >= .12 && c.x <= .88 && Math.abs(c.vx) >= .01 && Math.abs(c.vx) <= .05 &&
+    c.size >= 18 && c.size <= 23)) return value;
+  return [createCrab(0), createCrab(1)];
+}
 export function loadState(raw) {
   try {
     const s = JSON.parse(raw);
     if (s?.version !== 1 || !Array.isArray(s.fish) || s.fish.length < 1 || s.fish.length > MAX_FISH) return null;
     if (!s.fish.every(f => ['x','y','vx','vy','size','phase','species'].every(k => Number.isFinite(f[k])) && f.x >= .04 && f.x <= .96 && f.y >= .1 && f.y <= .84 && f.size >= 18 && f.size <= 30 && Number.isInteger(f.species) && f.species >= 0 && f.species < 3 && Math.abs(f.vx) <= .2 && Math.abs(f.vy) <= .2)) return null;
-    return { fish: s.fish, night: s.night === true };
+    return { fish: s.fish, night: s.night === true, crabs: restoreCrabs(s.crabs) };
   } catch { return null; }
 }
 export function feed(food, x = .5, y = .12) {
